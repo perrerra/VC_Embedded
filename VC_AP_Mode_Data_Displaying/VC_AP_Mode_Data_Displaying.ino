@@ -7,8 +7,8 @@
 #include <WiFiClient.h>
 #include <WiFiServer.h>
 
-#define hallSensorPin 18
-#define tiltSwitchPin 19
+#define hallSensorPin 19
+#define tiltSwitchPin 18
 
 /* AP Mode const and variables */
 const char ssid[] = "VC_AP_Mode";
@@ -31,14 +31,8 @@ uint32_t timeold; // date of the last measure
 void setup()
 {
   Serial.begin(9600);
-
   ap_mode_setup();
-  
-  //attachInterrupt(digitalPinToInterrupt(hallSensorPin), rpm_fun, RISING); // Supposedly better, but digitalPinToInterrupt is not recognized.
-  attachInterrupt(hallSensorPin, rpm_fun, RISING); // Interrupt triggers on rising edge; 
-                                                   //when the sensor turns off(the magnet leaves).
-  attachInterrupt(tiltSwitchPin, tilt_fun, RISING); // Interrupt triggers on rising edge; 
-                                                   //when the sensor turns off(the magnet leaves).
+  sensors_setup();
 }
  
 void loop()
@@ -137,7 +131,14 @@ void webserver_handler() {
             client.println("<br />");
           }
           */
-          client.println("<h1> Velo connecte </h1>");          
+          client.println("<h1> Velo connecte : </h1>");     
+          client.println("RPM : ");
+          client.println(rpm);   
+          client.println("( ");
+          client.println(rpm / 12);
+          client.println(" tours)");
+          client.println("<br/>Tilts : ");
+          client.println(tilt);     
           client.println("</html>");
           break;
         }
@@ -179,6 +180,22 @@ void printWifiStatus() {
 }
 
 /* --- Sensor handlers --- */
+void sensors_setup(){
+
+  pinMode(hallSensorPin, INPUT);
+  pinMode(tiltSwitchPin, INPUT);
+  
+  //attachInterrupt(digitalPinToInterrupt(hallSensorPin), rpm_fun, RISING); // Supposedly better, but digitalPinToInterrupt is not recognized.
+  attachInterrupt(hallSensorPin, rpm_fun, RISING); // Interrupt triggers on rising edge; 
+                                                   //when the sensor turns off(the magnet leaves).
+  attachInterrupt(tiltSwitchPin, tilt_fun, RISING); // Interrupt triggers on rising edge; 
+                                                   //when the sensor turns off(the magnet leaves).
+
+  rpm = 0;
+  tilt = 0;
+                                                   
+}
+
 void measurments_handler(){
   if (millis() - timeold > MEASURE_FREQUENCY) 
   {   
@@ -191,12 +208,23 @@ void measurments_handler(){
 void hall_handler(){
     //Update RPM every 5s, increase this for better RPM resolution,
     //decrease for faster update
-    rpm = 60000/MEASURE_FREQUENCY*(rpmcount-1);//1 min = 60000ms
+   if(rpmcount > 0){
+      rpm = 60000/MEASURE_FREQUENCY*(rpmcount-1);//1 min = 60000ms
+   }else{
+      rpm = 0;
+   }   
     rpmcount = 0;
 }
 void tilt_handler(){
-    tilt = tiltcount-1;//1 min = 60000ms
+   
+
+    if(tiltcount > 0){
+       tilt = tiltcount-1;//1 min = 60000ms
+    }else{
+       tilt = 0;
+    }
     tiltcount = 0;
+    
 }
 void rpm_fun()
 {
