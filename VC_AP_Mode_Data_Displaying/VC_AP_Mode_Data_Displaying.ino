@@ -6,6 +6,9 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiServer.h>
+#include <Wire.h>
+#include <BMA222.h>
+
 #include"AirQuality.h"
 
 #define HALL_SENSOR_PIN 19
@@ -34,6 +37,9 @@ uint32_t airquality_timeold; // date of the last air quality measure
 AirQuality airqualitysensor;
 uint16_t mean_airquality = 0;
 uint32_t airquality_buffer[5]; 
+int8_t xaxis;
+int8_t yaxis;
+int8_t zaxis;
 
 void setup()
 {
@@ -190,40 +196,40 @@ void printWifiStatus() {
 
 /* --- Sensor handlers --- */
 void sensors_setup(){
-
   pinMode(HALL_SENSOR_PIN, INPUT);
   pinMode(TILT_SWITCH_PIN, INPUT);
   pinMode(AIR_QUALITY_PIN, INPUT);
-  
+
   //attachInterrupt(digitalPinToInterrupt(HALL_SENSOR_PIN), rpm_fun, RISING); // Supposedly better, but digitalPinToInterrupt is not recognized.
   attachInterrupt(HALL_SENSOR_PIN, rpm_fun, RISING); // Interrupt triggers on rising edge; 
                                                    //when the sensor turns off(the magnet leaves).
   attachInterrupt(TILT_SWITCH_PIN, tilt_fun, RISING); // Interrupt triggers on rising edge; 
-                                                   //when the sensor turns off(the magnet leaves).
+                                                   //when the sensor turns off(the magnet leaves).  
   rpm = 0;
-  tilt = 0;
-
+  tilt = 0;  
   airquality_buffer_init();
+  xaxis = 0;
+  yaxis = 0;
+  zaxis = 0;
   
-                                                   
+  // Accelerometer
+  mySensor.begin();
+  uint8_t chipID = mySensor.chipID();                                                 
 }
 
-void measurments_handler(){
-  
+void measurments_handler(){  
   if (millis() - airquality_timeold > AIR_MEASURE_FREQUENCY) 
   {   
     airquality_buffer_update();
     airquality_timeold = millis();
-  }
-  
+  }  
   if (millis() - timeold > MEASURE_FREQUENCY) 
-  {   
-    
+  {       
     hall_handler();
     tilt_handler();
     mean_airquality_compute();
-    timeold = millis();
-    
+    accelerometer_read();
+    timeold = millis();    
   }
 }
 
@@ -277,6 +283,13 @@ void airquality_buffer_update(){
 
 void mean_airquality_compute(){
   mean_airquality = (airquality_buffer[0] + airquality_buffer[1] + airquality_buffer[2] + airquality_buffer[3] + airquality_buffer[4]) / 5;
+}
+
+void accelerometer_read()
+{
+  xaxis = mySensor.readXData();
+  yaxis = mySensor.readYData();
+  zaxis = mySensor.readZData(); 
 }
 
 /* ----------------------- */
