@@ -6,9 +6,11 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiServer.h>
+#include"AirQuality.h"
 
-#define hallSensorPin 19
-#define tiltSwitchPin 18
+#define HALL_SENSOR_PIN 19
+#define TILT_SWITCH_PIN 18
+#define AIR_QUALITY_PIN 24
 
 /* AP Mode const and variables */
 const char ssid[] = "VC_AP_Mode";
@@ -21,12 +23,17 @@ WiFiServer server(80);
 
 /* Captors const and variables */
 const uint32_t MEASURE_FREQUENCY = 5000; // 5s = 5000ms : time period between two measurments.
+const uint32_t AIR_MEASURE_FREQUENCY = 1000; // 5s = 5000ms : time period between two measurments.
 
 volatile uint8_t rpmcount;//(rpmcount - 1) is the number of revolutions 
 volatile uint8_t tiltcount;//(tiltcountount - 1) is the number of tilts 
 uint16_t rpm;//revolutions per minute
 uint16_t tilt;//tilts over measure period
 uint32_t timeold; // date of the last measure
+uint32_t airquality_timeold; // date of the last air quality measure
+AirQuality airqualitysensor;
+uint16_t mean_airquality = 0;
+uint32_t airquality_buffer[5]; 
 
 void setup()
 {
@@ -139,6 +146,8 @@ void webserver_handler() {
           client.println(" tours)");
           client.println("<br/>Tilts : ");
           client.println(tilt);     
+          client.println("<br/>Air quality : ");
+          client.println(mean_airquality);     
           client.println("</html>");
           break;
         }
@@ -182,26 +191,39 @@ void printWifiStatus() {
 /* --- Sensor handlers --- */
 void sensors_setup(){
 
-  pinMode(hallSensorPin, INPUT);
-  pinMode(tiltSwitchPin, INPUT);
+  pinMode(HALL_SENSOR_PIN, INPUT);
+  pinMode(TILT_SWITCH_PIN, INPUT);
+  pinMode(AIR_QUALITY_PIN, INPUT);
   
-  //attachInterrupt(digitalPinToInterrupt(hallSensorPin), rpm_fun, RISING); // Supposedly better, but digitalPinToInterrupt is not recognized.
-  attachInterrupt(hallSensorPin, rpm_fun, RISING); // Interrupt triggers on rising edge; 
+  //attachInterrupt(digitalPinToInterrupt(HALL_SENSOR_PIN), rpm_fun, RISING); // Supposedly better, but digitalPinToInterrupt is not recognized.
+  attachInterrupt(HALL_SENSOR_PIN, rpm_fun, RISING); // Interrupt triggers on rising edge; 
                                                    //when the sensor turns off(the magnet leaves).
-  attachInterrupt(tiltSwitchPin, tilt_fun, RISING); // Interrupt triggers on rising edge; 
+  attachInterrupt(TILT_SWITCH_PIN, tilt_fun, RISING); // Interrupt triggers on rising edge; 
                                                    //when the sensor turns off(the magnet leaves).
-
   rpm = 0;
   tilt = 0;
+
+  airquality_buffer_init();
+  
                                                    
 }
 
 void measurments_handler(){
+  
+  if (millis() - airquality_timeold > AIR_MEASURE_FREQUENCY) 
+  {   
+    airquality_buffer_update();
+    airquality_timeold = millis();
+  }
+  
   if (millis() - timeold > MEASURE_FREQUENCY) 
   {   
+    
     hall_handler();
     tilt_handler();
+    mean_airquality_compute();
     timeold = millis();
+    
   }
 }
 
@@ -234,4 +256,27 @@ void tilt_fun()
 {
   tiltcount++;
 }
+
+/* ------ Air quality buffer handler --------- */
+void airquality_buffer_init(){
+  airquality_buffer[0] = 0;
+  airquality_buffer[1] = 0;
+  airquality_buffer[2] = 0;
+  airquality_buffer[3] = 0;
+  airquality_buffer[4] = 0;
+}
+
+void airquality_buffer_update(){
+  uint32_t aq_measure = analogRead(AIR_QUALITY_PIN);
+  airquality_buffer[0] = airquality_buffer[1];
+  airquality_buffer[1] = airquality_buffer[2];
+  airquality_buffer[2] = airquality_buffer[3];
+  airquality_buffer[3] = airquality_buffer[4];
+  airquality_buffer[4] = aq_measure;
+}
+
+void mean_airquality_compute(){
+  mean_airquality = (airquality_buffer[0] + airquality_buffer[1] + airquality_buffer[2] + airquality_buffer[3] + airquality_buffer[4]) / 5;
+}
+
 /* ----------------------- */
