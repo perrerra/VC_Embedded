@@ -37,6 +37,7 @@ uint32_t airquality_timeold; // date of the last air quality measure
 AirQuality airqualitysensor;
 uint16_t mean_airquality = 0;
 uint32_t airquality_buffer[5]; 
+BMA222 mySensor;
 int8_t xaxis;
 int8_t yaxis;
 int8_t zaxis;
