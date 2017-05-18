@@ -30,18 +30,21 @@ BMA222 imu_sensor;
 int8_t xaxis;
 int8_t yaxis;
 int8_t zaxis;
+float slope_value;
 
 void setup()
 {
   Serial.begin(9600);
   ap_mode_setup();
   sensors_setup();
+  mpu6050_setup();
 }
  
 void loop()
 {
   ap_mode_handler();
   measurments_handler();
+  mpu6050_computing();
 }
 
 
@@ -62,6 +65,7 @@ void sensors_setup(){
   xaxis = 0;
   yaxis = 0;
   zaxis = 0;
+  slope_value = 0;
   
   // Accelerometer
   imu_sensor.begin();
@@ -82,6 +86,8 @@ void measurments_handler(){
     accelerometer_read();
     timeold = millis();  
     mqtt_publish_values();  
+    slope_value = getSlope();
+    Serial.println(slope_value);
   }
   
 }
@@ -116,8 +122,9 @@ void tilt_fun()
 void mqtt_publish_values(){
   mqtt_send("vc_rpm", rpm);
   mqtt_send("air_quality", mean_airquality);
-  mqtt_send("tilt", tilt);
-  mqtt_send("slope", "slope");
+  mqtt_send("tilt", tilt);  
+  mqtt_send("slope", slope_value);
+  
 }
 
 /* ------ Air quality buffer handler --------- */
@@ -150,3 +157,4 @@ void accelerometer_read()
 }
 
 /* ----------------------- */
+

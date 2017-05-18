@@ -129,3 +129,4 @@ int AirQuality::slope(void)
     return -1;
 }
 
+

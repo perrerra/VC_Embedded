@@ -40,3 +40,4 @@ private:
     void avgVoltage(void);
 };
 #endif
+
